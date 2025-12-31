@@ -13,6 +13,7 @@ global gHotkeyLabel := ""
 global gMenuReady := false
 global gHotkeyGui := 0
 global gHotkeyCtrl := 0
+global gStartupAddedLabel := "未加入开机启动"
 
 ; 托盘菜单
 InitHotkey()
@@ -23,10 +24,16 @@ A_TrayMenu.Add("设置快捷键...", (*) => ShowHotkeyDialog())
 A_TrayMenu.Add(gHotkeyLabel, (*) => 0)
 A_TrayMenu.Disable(gHotkeyLabel)
 A_TrayMenu.Add()
+A_TrayMenu.Add("加入开机启动", (*) => AddStartupShortcut())
+A_TrayMenu.Add("移除开机启动", (*) => RemoveStartupShortcut())
+A_TrayMenu.Add(gStartupAddedLabel, (*) => 0)
+A_TrayMenu.Disable(gStartupAddedLabel)
+A_TrayMenu.Add()
 A_TrayMenu.Add("退出", (*) => ExitApp())
 A_TrayMenu.Default := "打开/隐藏"
 A_TrayMenu.ClickCount := 1
 gMenuReady := true
+UpdateStartupMenu()
 
 ; 单击托盘图标：打开/隐藏
 OnMessage(0x404, TrayIconMsg) ; WM_USER + something (tray callback)
@@ -181,6 +188,69 @@ FormatHotkeyForDisplay(hk) {
 
 HotkeyToggle(*) {
     ToggleGui()
+}
+
+GetStartupShortcutPath() {
+    name := RegExReplace(A_ScriptName, "\.(ahk|exe)$")
+    return A_Startup "\" name ".lnk"
+}
+
+GetStartupIconPath() {
+    if (A_IsCompiled)
+        return A_ScriptFullPath
+    Loop Files, A_ScriptDir "\*.ico" {
+        return A_LoopFileFullPath
+    }
+    return ""
+}
+
+AddStartupShortcut() {
+    link := GetStartupShortcutPath()
+    if FileExist(link) {
+        UpdateStartupMenu()
+        MsgBox("已在开机启动中。", "开机启动")
+        return
+    }
+    target := A_IsCompiled ? A_ScriptFullPath : A_AhkPath
+    args := A_IsCompiled ? "" : '"' A_ScriptFullPath '"'
+    icon := GetStartupIconPath()
+    if (icon != "")
+        FileCreateShortcut(target, link, A_ScriptDir, args, "TrayScratchpad", icon)
+    else
+        FileCreateShortcut(target, link, A_ScriptDir, args, "TrayScratchpad")
+    UpdateStartupMenu()
+    MsgBox("已加入开机启动。", "开机启动")
+}
+
+RemoveStartupShortcut() {
+    link := GetStartupShortcutPath()
+    if FileExist(link) {
+        try FileDelete(link)
+        UpdateStartupMenu()
+        MsgBox("已移除开机启动。", "开机启动")
+        return
+    }
+    UpdateStartupMenu()
+    MsgBox("当前未加入开机启动。", "开机启动")
+}
+
+UpdateStartupMenu() {
+    global gStartupAddedLabel, gMenuReady
+    if !gMenuReady
+        return
+    isAdded := FileExist(GetStartupShortcutPath())
+    newLabel := isAdded ? "已加入开机启动" : "未加入开机启动"
+    if (gStartupAddedLabel != "")
+        try A_TrayMenu.Rename(gStartupAddedLabel, newLabel)
+    gStartupAddedLabel := newLabel
+    try A_TrayMenu.Disable(newLabel)
+    if (isAdded) {
+        try A_TrayMenu.Disable("加入开机启动")
+        try A_TrayMenu.Enable("移除开机启动")
+    } else {
+        try A_TrayMenu.Enable("加入开机启动")
+        try A_TrayMenu.Disable("移除开机启动")
+    }
 }
 
 ShowHotkeyDialog() {
