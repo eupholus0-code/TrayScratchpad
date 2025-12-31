@@ -1,0 +1,14 @@
+# Build artifacts
+*.exe
+
+# Logs/temp/backup
+*.log
+*.tmp
+*.bak
+*.swp
+*.swo
+*~
+
+# Windows
+Thumbs.db
+Desktop.ini
