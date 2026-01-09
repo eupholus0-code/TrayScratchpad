@@ -10,6 +10,8 @@ global gFadeTimer := 0
 global gShowTimer := 0
 global gHotkey := ""
 global gHotkeyLabel := ""
+global gPinned := false
+global gPinBtn := 0
 global gMenuReady := false
 global gHotkeyGui := 0
 global gHotkeyCtrl := 0
@@ -40,7 +42,7 @@ OnMessage(0x404, TrayIconMsg) ; WM_USER + something (tray callback)
 OnMessage(0x0006, GuiActivateMsg) ; WM_ACTIVATE
 
 ToggleGui() {
-    global gGui, gEdit, gVisible
+    global gGui, gEdit, gVisible, gPinned, gPinBtn
     if !IsObject(gGui) {
         gGui := Gui("+AlwaysOnTop +ToolWindow -MinimizeBox", "临时文本")
         gGui.MarginX := 10
@@ -55,6 +57,9 @@ ToggleGui() {
         btnClear := gGui.AddButton("x+8 w80", "清空")
         btnClear.OnEvent("Click", (*) => ClearText())
 
+        gPinBtn := gGui.AddButton("x+8 w80", "固定")
+        gPinBtn.OnEvent("Click", (*) => TogglePin())
+
         btnClose := gGui.AddButton("x+8 w80", "关闭")
         btnClose.OnEvent("Click", (*) => HideAndDiscard())
 
@@ -65,6 +70,9 @@ ToggleGui() {
         ; 先显示再隐藏，强制完成布局计算
         gGui.Show("AutoSize Hide")
     }
+
+    if (IsObject(gPinBtn))
+        gPinBtn.Text := gPinned ? "取消固定" : "固定"
 
     if (gVisible) {
         HideAndDiscard()
@@ -188,6 +196,13 @@ FormatHotkeyForDisplay(hk) {
 
 HotkeyToggle(*) {
     ToggleGui()
+}
+
+TogglePin(*) {
+    global gPinned, gPinBtn
+    gPinned := !gPinned
+    if (IsObject(gPinBtn))
+        gPinBtn.Text := gPinned ? "取消固定" : "固定"
 }
 
 GetStartupShortcutPath() {
@@ -318,13 +333,14 @@ GuiClose(*) {
 }
 
 GuiActivateMsg(wParam, lParam, msg, hwnd) {
-    global gGui, gVisible
+    global gGui, gVisible, gPinned
     if (!gVisible || !IsObject(gGui))
         return
     if (hwnd != gGui.Hwnd)
         return
     if ((wParam & 0xFFFF) = 0) { ; WA_INACTIVE
-        HideAndDiscard()
+        if (!gPinned)
+            HideAndDiscard()
         return 0
     }
 }
